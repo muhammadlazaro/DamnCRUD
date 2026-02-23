@@ -8,7 +8,7 @@ from driver import create_driver
 
 import os
 
-BASE_URL = os.getenv("BASE_URL", "http://localhost/DamnCRUD")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
 
 
 # =========================

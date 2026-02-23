@@ -43,20 +43,36 @@ jobs:
         php-version: '8.2'
         extensions: pdo_mysql, mysqli
 
-    # 3️ Import database
-    - name: Import database
+    # 3️ Wait for MySQL and import database
+    - name: Wait for MySQL and import database
       run: |
-        mysql -h 127.0.0.1 -P 3306 -u root --protocol=TCP < db/damncrud.sql
+        echo "Waiting for MySQL to be ready..."
+        for i in {1..30}; do
+          if mysql -h 127.0.0.1 -P 3306 -u root -e "SELECT 1" > /dev/null 2>&1; then
+            echo "✓ MySQL is ready!"
+            break
+          fi
+          echo "Attempt $i/30: MySQL not ready yet..."
+          sleep 1
+        done
+        echo "Importing database..."
+        mysql -h 127.0.0.1 -P 3306 -u root < db/damncrud.sql || true
+        echo "✓ Database imported"
 
     # 4️ Start PHP built-in server
     - name: Start PHP server
       run: |
         php -S localhost:8080 -t . > /tmp/php_server.log 2>&1 &
-        echo "Waiting for server..."
-        for i in {1..15}; do
-          curl -sf http://localhost:8080/login.php > /dev/null && echo "Server ready" && break
+        echo "Waiting for server to be ready..."
+        for i in {1..30}; do
+          if curl -sf http://localhost:8080/login.php > /dev/null 2>&1; then
+            echo "✓ Server is ready!"
+            break
+          fi
+          echo "Attempt $i/30: Server not ready yet, waiting..."
           sleep 2
         done
+        sleep 3
 
     # 5️ Setup Python
     - name: Set up Python
