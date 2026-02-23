@@ -1,0 +1,43 @@
+name: Selenium CI (End to End)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Start application with Docker
+      run: |
+        docker compose up -d
+        docker ps
+
+    - name: Wait for web app
+      run: |
+        echo "Waiting for web..."
+        sleep 25
+        curl -I http://localhost:8080
+
+    - name: Run Selenium Tests (Paralel)
+      run: |
+        pytest selenium/tests -v -n auto
+
+    - name: Shutdown containers
+      if: always()
+      run: docker compose down -v
