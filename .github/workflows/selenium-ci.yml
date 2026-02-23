@@ -1,49 +1,102 @@
-name: Selenium CI (End to End)
+name: DamnCRUD CI Pipeline
 
 on:
   push:
     branches: [ main ]
   pull_request:
+    branches: [ main ]
 
 jobs:
-  e2e-test:
+  selenium-tests:
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_USER: root
+      DB_PASS: ''
+      DB_NAME: damncrud
+      BASE_URL: http://localhost:8080
+
     steps:
-    - name: Checkout code
+
+    # 1️ Checkout repo
+    - name: Checkout repository
       uses: actions/checkout@v4
 
+    # 2️ Setup PHP
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: pdo_mysql, mysqli
+
+    # 3️ Import database
+    - name: Import database
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u root --protocol=TCP < db/damncrud.sql
+
+    # 4️ Start PHP built-in server
+    - name: Start PHP server
+      run: |
+        php -S localhost:8080 -t . > /tmp/php_server.log 2>&1 &
+        echo "Waiting for server..."
+        for i in {1..15}; do
+          curl -sf http://localhost:8080/login.php > /dev/null && echo "Server ready" && break
+          sleep 2
+        done
+
+    # 5️ Setup Python
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.11"
+        python-version: '3.11'
+        cache: 'pip'
 
-    - name: Install Python dependencies
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    # 6️ Setup Chrome
+    - name: Setup Chrome
+      uses: browser-actions/setup-chrome@v1
+
+    # 7️ Run Selenium Tests
+    - name: Run tests
       run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        pytest selenium/tests \
+          -n auto \
+          -v \
+          --tb=short \
+          --junit-xml=test-results.xml
 
-    # 🔥 TAMBAHKAN INI
-    - name: Stop old containers (clean slate)
-      run: docker compose down -v || true
-
-    # 🔥 GANTI YANG LAMA DENGAN INI
-    - name: Start application with Docker
-      run: |
-        docker compose up -d --build
-        docker ps
-
-    - name: Wait for web app
-      run: |
-        echo "Waiting for web..."
-        sleep 25
-        curl -I http://localhost:8080
-
-    - name: Run Selenium Tests (Paralel)
-      run: pytest selenium/tests -v -n auto
-      env:
-        BASE_URL: http://localhost:8080
-
-    - name: Shutdown containers
+    # 8️ Upload results
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
       if: always()
-      run: docker compose down -v
+      with:
+        name: test-results
+        path: test-results.xml
+
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: screenshots
+        path: screenshoot/
+
+    # 9️ Show PHP log if failure
+    - name: Show PHP log (on failure)
+      if: failure()
+      run: cat /tmp/php_server.log
