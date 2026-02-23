@@ -6,7 +6,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from driver import create_driver
 
-BASE_URL = "http://localhost/DamnCRUD"
+import os
+
+BASE_URL = os.getenv("BASE_URL", "http://localhost/DamnCRUD")
 
 
 # =========================
