@@ -79,7 +79,9 @@ def test_FT_006_add_contact_valid(driver):
     WebDriverWait(driver, 10).until(
         EC.url_contains("index.php")
     )
-
+    
+    # Wait for data to appear in the table
+    time.sleep(1)
     assert "Selenium Tester" in driver.page_source
 
 
@@ -120,7 +122,6 @@ def test_FT_008_edit_contact(driver):
 
     if phone.get_attribute("value") == "":
         phone.send_keys("081234567890")
-
     # Update title
     title.clear()
     title.send_keys("Updated Title")
@@ -132,6 +133,9 @@ def test_FT_008_edit_contact(driver):
     WebDriverWait(driver, 10).until(
         EC.url_contains("index.php")
     )
+    
+    # Wait for data to appear
+    time.sleep(1)
 
     # Verifikasi perubahan tampil
     assert "Updated Title" in driver.page_source
