@@ -23,9 +23,14 @@ jobs:
         pip install --upgrade pip
         pip install -r requirements.txt
 
+    # 🔥 TAMBAHKAN INI
+    - name: Stop old containers (clean slate)
+      run: docker compose down -v || true
+
+    # 🔥 GANTI YANG LAMA DENGAN INI
     - name: Start application with Docker
       run: |
-        docker compose up -d
+        docker compose up -d --build
         docker ps
 
     - name: Wait for web app
