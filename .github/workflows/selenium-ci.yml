@@ -62,17 +62,40 @@ jobs:
     # 4️ Start PHP built-in server
     - name: Start PHP server
       run: |
+        echo "Starting PHP server on port 8080..."
         php -S localhost:8080 -t . > /tmp/php_server.log 2>&1 &
+        PHP_PID=$!
+        echo "PHP Server PID: $PHP_PID"
+        
         echo "Waiting for server to be ready..."
-        for i in {1..30}; do
-          if curl -sf http://localhost:8080/login.php > /dev/null 2>&1; then
-            echo "✓ Server is ready!"
+        MAX_ATTEMPTS=40
+        for i in $(seq 1 $MAX_ATTEMPTS); do
+          sleep 1
+          echo "Health check attempt $i/$MAX_ATTEMPTS..."
+          
+          # Try to fetch login page and check if username field exists
+          RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:8080/login.php 2>/dev/null)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q "inputUsername"; then
+            echo "✓ Server is ready! Login page loaded successfully."
             break
           fi
-          echo "Attempt $i/30: Server not ready yet, waiting..."
-          sleep 2
+          
+          if [ $i -eq $MAX_ATTEMPTS ]; then
+            echo "✗ Server failed to start properly after $MAX_ATTEMPTS attempts!"
+            echo "HTTP Code: $HTTP_CODE"
+            echo "Server log:"
+            cat /tmp/php_server.log
+            exit 1
+          fi
         done
-        sleep 3
+        
+        # Extra wait to ensure stability
+        sleep 5
+        echo "Final server test..."
+        curl -v http://localhost:8080/login.php 2>&1 | head -20
 
     # 5️ Setup Python
     - name: Set up Python
@@ -92,10 +115,10 @@ jobs:
     - name: Run tests
       run: |
         pytest selenium/tests \
-          -n auto \
           -v \
           --tb=short \
-          --junit-xml=test-results.xml
+          --junit-xml=test-results.xml \
+          -p no:xdist
 
     # 8️ Upload results
     - name: Upload test results

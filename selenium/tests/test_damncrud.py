@@ -24,19 +24,36 @@ def driver():
 
 
 def login(driver):
-    driver.get(f"{BASE_URL}/login.php")
+    print(f"\n[DEBUG] Attempting login to {BASE_URL}/login.php")
+    try:
+        driver.get(f"{BASE_URL}/login.php")
+        print(f"[DEBUG] Page loaded. Current URL: {driver.current_url}")
+        print(f"[DEBUG] Page title: {driver.title}")
+        print(f"[DEBUG] Page source (first 500 chars): {driver.page_source[:500]}")
+    except Exception as e:
+        print(f"[DEBUG] Error loading page: {e}")
+        raise
 
-    WebDriverWait(driver, 10).until(
-        EC.visibility_of_element_located((By.NAME, "username"))
-    )
+    print("[DEBUG] Waiting for username field...")
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.NAME, "username"))
+        )
+    except Exception as e:
+        print(f"[DEBUG] Timeout waiting for username field!")
+        print(f"[DEBUG] Full page source: {driver.page_source}")
+        raise
 
+    print("[DEBUG] Found username field, entering credentials...")
     driver.find_element(By.NAME, "username").send_keys("admin")
     driver.find_element(By.NAME, "password").send_keys("nimda666!")
     driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
+    print("[DEBUG] Waiting for redirect to index.php...")
     WebDriverWait(driver, 10).until(
         EC.url_contains("index.php")
     )
+    print(f"[DEBUG] Successfully logged in. Current URL: {driver.current_url}")
 
 
 # =========================
